@@ -140,21 +140,30 @@ include 'connect.php';
             ?>
             <tr>
               <td><input type="checkbox" data-id="<?php echo $id; ?>"></td>
-              <th scope="row">
-                <?php echo $id; ?>
-              </th>
-              <td>
-                <?php echo $name; ?>
+              <td scope="row">
+                <?php echo $row['id']; ?>
               </td>
               <td>
-                <?php echo $email; ?>
+                <?php echo $row['username'] . ' ' . $row['lastname']; ?>
               </td>
               <td>
-                <button class="btn btn-primary"><a href="update.php?update_id=<?php echo $id; ?>"
+                <?php echo $row['email_id']; ?>
+              </td>
+              <td>
+
+                <button class="btn btn-primary"><a href="update.php?update_id=<?php echo $row['id']; ?>"
                     class="text-light">Update</a></button>
-                <button class="btn btn-danger"><a href="delete.php?delete_id=<?php echo $id; ?>"
+
+
+                <button class="btn btn-danger"><a href="delete.php?delete_id=<?php echo $row['id']; ?>"
                     class="text-light">Delete</a></button>
-                    <button class="btn btn-success active-btn" data-id="<?php echo $id; ?>">Active</button>
+
+
+                <button class="btn <?php echo ($row['is_active'] == 1) ? 'btn-success' : 'btn-warning'; ?> active-btn"
+                  data-id="<?php echo $row['id']; ?>" data-status="<?php echo $row['is_active']; ?>">
+                  <?php echo ($row['is_active'] == 1) ? 'Active' : 'Inactive'; ?>
+                </button>
+
 
 
               </td>
@@ -165,6 +174,7 @@ include 'connect.php';
         ?>
       </tbody>
     </table>
+    </form>
 
     <!-- Delete Selected button -->
     <button class="btn btn-danger" id="deleteSelectedBtn" style="display: none">Delete Selected</button>
@@ -178,10 +188,15 @@ include 'connect.php';
         ]
       });
 
+
+
+
       // Add an event listener to the Export to Excel button
       $('#exportExcel').on('click', function () {
         window.location.href = 'export_excel.php'; // Redirect to the export script
       });
+
+
 
       // Check if any checkboxes are selected and show/hide "Delete Selected" button accordingly
       $('input:checkbox').change(function () {
@@ -192,6 +207,8 @@ include 'connect.php';
           $('#deleteSelectedBtn').hide();
         }
       });
+
+
       $('#select-all-checkbox').change(function () {
         var isChecked = this.checked;
         $('.select-all-checkbox').prop('checked', isChecked);
@@ -206,67 +223,92 @@ include 'connect.php';
         });
 
         if (selectedIds.length > 0) {
-          // Make an AJAX request to delete the selected records
-          $.ajax({
-            url: 'delete_selected.php',
-            method: 'POST',
-            data: { selectedIds: selectedIds },
-            dataType: 'json',
-            success: function (response) {
-              if (response.success) {
-                // Reload the page or update the table
-                window.location.reload();
-              } else {
-                console.error('Failed to delete selected records: ' + response.message); // Log the error
-                alert('Failed to delete selected records: ' + response.message);
+          // Show confirmation dialog
+          if (confirm('Are you sure you want to delete the selected rows?')) {
+            // Make an AJAX request to delete the selected records
+            $.ajax({
+              url: 'delete_selected.php',
+              method: 'POST',
+              data: { selectedIds: selectedIds },
+              dataType: 'json',
+              success: function (response) {
+                if (response.success) {
+                  // Reload the page or update the table
+                  window.location.reload();
+                } else {
+                  console.error('Failed to delete selected records: ' + response.message); // Log the error
+                  alert('Failed to delete selected records: ' + response.message);
+                }
+              },
+              error: function (jqXHR, textStatus, errorThrown) {
+                console.error('AJAX request failed:', textStatus, errorThrown); // Log the error
+                alert('An error occurred during the request. Check the console for details.');
               }
-            },
-            error: function (jqXHR, textStatus, errorThrown) {
-              console.error('AJAX request failed:', textStatus, errorThrown); // Log the error
-              alert('An error occurred during the request. Check the console for details.');
-            }
-          });
+            });
+          }
         }
       });
-
-
-      
-    // Add an event listener for the "Active" button
-$('.active-btn').on('click', function () {
+    });
+    </script>
+   <script>
+  $('.active-btn').on('click', function () {
     var id = $(this).data('id');
-    var activeButton = $(this); // Store $(this) in a variable
+    var status = $(this).data('status');
+    var activeButton = $(this);
 
-    // Make an AJAX request to toggle the is_active status
-    $.ajax({
+    var confirmation = confirm("Are you sure you want to change the status?");
+    
+    if (confirmation) {
+      $.ajax({
         url: 'toggle_active.php',
         method: 'POST',
-        data: { id: id },
+        data: { id: id, status: status },
         dataType: 'json',
         success: function (response) {
-            if (response.success) {
-                // Update button appearance
-                if (response.is_active) {
-                    // If now active
-                    activeButton.removeClass('btn-success').addClass('btn-warning').text('Inactive');
-                } else {
-                    // If now inactive
-                    activeButton.removeClass('btn-warning').addClass('btn-success').text('Active');
-                }
+          if (response.success) {
+            if (response.is_active==1) {
+              activeButton.removeClass('btn-warning').addClass('btn-success').text('Active');
             } else {
-                console.error('Failed to toggle active status: ' + response.message); // Log the error
-                alert('Failed to toggle active status: ' + response.message);
+              activeButton.removeClass('btn-success').addClass('btn-warning').text('Inactive');
             }
+            activeButton.data('status', response.is_active);
+            var successAlert = $('<div class="alert alert-success" role="alert">Status changed successfully!</div>');
+              $('.container').prepend(successAlert); // Append the alert to the container
+
+              // Remove the alert after 2 seconds
+              setTimeout(function () {
+                successAlert.remove();
+              }, 2000);
+          } else {
+            console.error('Failed to toggle active status: ' + response.message);
+            alert('Failed to toggle active status: ' + response.message);
+          }
         },
         error: function (jqXHR, textStatus, errorThrown) {
-            console.error('AJAX request failed:', textStatus, errorThrown); // Log the error
-            alert('An error occurred during the request. Check the console for details.');
+          console.error('AJAX request failed:', textStatus, errorThrown);
+          alert('An error occurred during the request. Check the console for details.');
         }
-    });
-});
-    });
+      });
+    }
+  });
+</script>
 
-   
-  </script>
+<script>
+  window.onload = function () {
+    // Check if the cookie 'welcomeAlertShown' exists
+    if (document.cookie.indexOf('welcomeAlertShown=') == -1) {
+      $('#welcomeModal').modal('show');
+
+      // Set a cookie to indicate that the welcome alert has been shown
+      document.cookie = "welcomeAlertShown=true; expires=Sun, 30 Dec 9999 23:59:59 GMT";
+    }
+  }
+</script>
+
+
+
+
+  
 </body>
 
 </html>
